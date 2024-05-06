@@ -21,6 +21,15 @@ from builtins import str
 from datetime import datetime
 import binascii
 
+#!/usr/bin/env python3
+from cryptography import x509
+
+# CHIP OID for vendor id
+VENDOR_ID = x509.ObjectIdentifier('1.3.6.1.4.1.37244.2.1')
+
+# CHIP OID for product id
+PRODUCT_ID = x509.ObjectIdentifier('1.3.6.1.4.1.37244.2.2')
+
 # Loads private key
 def load_privatekey(key_file_path, password=None):
     key_file = open(key_file_path, "rb")
@@ -83,7 +92,7 @@ def sign_csr(cert_sign_req, ca_cert, ca_privkey, device_sn, nva_years):
     dev_sn = str(device_sn.upper())
 
     device_subject = x509.Name([
-        x509.NameAttribute(NameOID.ORGANIZATION_NAME, ca_cert.subject.get_attributes_for_oid(NameOID.ORGANIZATION_NAME)[0].value),
+        x509.NameAttribute(NameOID.ORGANIZATION_NAME, ca_cert.subject.get_attributes_for_oid(VENDOR_ID)[0].value),
         x509.NameAttribute(NameOID.COMMON_NAME,dev_sn),
     ])
 
@@ -117,3 +126,43 @@ def sign_csr(cert_sign_req, ca_cert, ca_privkey, device_sn, nva_years):
         backend=default_backend()
     )
     return device_cert.public_bytes(serialization.Encoding.PEM)
+
+# VALID_DAYS = 365
+
+# def get_vid_from_c(c, type):
+#     try:
+#         vid = c.subject.get_attributes_for_oid(CHIP_OID.VENDOR_ID)[0].value
+#     except IndexError:
+#         print('VID not found in {}'.format(type))
+#         return None
+#     return vid
+
+# def get_pid_from_c(c, type):
+#     try:
+#         pid = c.subject.get_attributes_for_oid(CHIP_OID.PRODUCT_ID)[0].value
+#     except IndexError:
+#         print('PID not found in {}'.format(type))
+#         return None
+#     return pid
+
+
+# def sign_csr_matter(csr, ca_cert, ca_key, device_sn, nva_years):
+#     cert = x509.CertificateBuilder()
+#     cert = cert.subject_name(csr.subject)
+#     cert = cert.issuer_name(ca_cert.subject)
+#     cert = cert.public_key(csr.public_key())
+#     cert = cert.serial_number(x509.random_serial_number())
+#     cert = cert.not_valid_before(datetime.datetime.utcnow())
+#     cert = cert.not_valid_after(datetime.datetime.utcnow() + datetime.timedelta(days=VALID_DAYS))
+#     cert = cert.add_extension(x509.BasicConstraints(ca=False, path_length=None), critical=True)
+#     cert = cert.add_extension(x509.KeyUsage(digital_signature=True, content_commitment=False,
+#                                             key_encipherment=False, data_encipherment=False,
+#                                             key_agreement=False, key_cert_sign=False, crl_sign=False,
+#                                             encipher_only=False, decipher_only=False), critical=True)
+#     cert = cert.add_extension(x509.SubjectKeyIdentifier.from_public_key(csr.public_key()), critical=False)
+#     cert = cert.add_extension(x509.AuthorityKeyIdentifier.from_issuer_public_key(ca_cert.public_key()), critical=False)
+#     cert = cert.sign(ca_key, hashes.SHA256(), default_backend())
+
+#     # csr_vid = get_vid_from_c(csr, 'CSR')
+#     # csr_pid = get_pid_from_c(csr, 'CSR')
+#     return cert.public_bytes(serialization.Encoding.PEM)

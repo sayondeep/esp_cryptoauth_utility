@@ -178,6 +178,8 @@ def provision_trustcustom_device(args, init_mfg):
         signer_cert = hs.cert_sign.load_certificate(args.signer_cert)
         # Sign the CSR using the generated keys
         device_cert = hs.cert_sign.sign_csr(retval[1]['Return'].encode(), signer_cert, private_key, serial_number_hex, args.nva_years)
+        # device_cert = hs.cert_sign.sign_csr_matter(retval[1]['Return'].encode(), signer_cert, private_key, serial_number_hex, args.nva_years)
+
         print('Device cert generated: \n')
         dec_device_cert = device_cert.decode()
         print(dec_device_cert)
