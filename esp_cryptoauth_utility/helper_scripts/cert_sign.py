@@ -58,6 +58,22 @@ def encode_dates(nvb_time, expire_years):
     enc_dates = bytes(enc_dates)
     return enc_dates
 
+def get_vid_from_c(c, type):
+    try:
+        vid = c.subject.get_attributes_for_oid(VENDOR_ID)[0].value
+    except IndexError:
+        print('VID not found in {}'.format(type))
+        return None
+    return vid
+
+def get_pid_from_c(c, type):
+    try:
+        pid = c.subject.get_attributes_for_oid(PRODUCT_ID)[0].value
+    except IndexError:
+        print('PID not found in {}'.format(type))
+        return None
+    return pid
+
 def sign_csr(cert_sign_req, ca_cert, ca_privkey, device_sn, nva_years):
 
     csr = x509.load_pem_x509_csr(cert_sign_req, default_backend())
@@ -91,9 +107,15 @@ def sign_csr(cert_sign_req, ca_cert, ca_privkey, device_sn, nva_years):
 
     dev_sn = str(device_sn.upper())
 
+    # device_subject = x509.Name([
+    #     x509.NameAttribute(NameOID.ORGANIZATION_NAME, ca_cert.subject.get_attributes_for_oid(NameOID.ORGANIZATION_NAME)[0].value),
+    #     x509.NameAttribute(NameOID.COMMON_NAME,dev_sn),
+    # ])
     device_subject = x509.Name([
-        x509.NameAttribute(NameOID.ORGANIZATION_NAME, ca_cert.subject.get_attributes_for_oid(VENDOR_ID)[0].value),
-        x509.NameAttribute(NameOID.COMMON_NAME,dev_sn),
+        x509.NameAttribute(NameOID.COMMON_NAME, ca_cert.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value),
+        x509.NameAttribute(VENDOR_ID, ca_cert.subject.get_attributes_for_oid(VENDOR_ID)[0].value),
+        # x509.NameAttribute(PRODUCT_ID,ca_cert.subject.get_attributes_for_oid(PRODUCT_ID)[0].value),
+
     ])
 
     device_cert = x509.CertificateBuilder().subject_name(
@@ -110,7 +132,7 @@ def sign_csr(cert_sign_req, ca_cert, ca_privkey, device_sn, nva_years):
         nva_time
     ).add_extension(
         x509.KeyUsage(
-            digital_signature=True, key_encipherment=True, content_commitment=True,
+            digital_signature=True, key_encipherment=False, content_commitment=False,
             data_encipherment=False, key_agreement=False, encipher_only=False, decipher_only=False, key_cert_sign=False, crl_sign=False
         ),
         critical=True
@@ -120,49 +142,12 @@ def sign_csr(cert_sign_req, ca_cert, ca_privkey, device_sn, nva_years):
     ).add_extension(
         x509.AuthorityKeyIdentifier.from_issuer_public_key(ca_privkey.public_key()),
         critical=False
+    ).add_extension(
+        x509.SubjectKeyIdentifier.from_public_key(csr.public_key()),
+        critical=False
     ).sign(
         private_key=ca_privkey,
         algorithm=hashes.SHA256(),
         backend=default_backend()
     )
     return device_cert.public_bytes(serialization.Encoding.PEM)
-
-# VALID_DAYS = 365
-
-# def get_vid_from_c(c, type):
-#     try:
-#         vid = c.subject.get_attributes_for_oid(CHIP_OID.VENDOR_ID)[0].value
-#     except IndexError:
-#         print('VID not found in {}'.format(type))
-#         return None
-#     return vid
-
-# def get_pid_from_c(c, type):
-#     try:
-#         pid = c.subject.get_attributes_for_oid(CHIP_OID.PRODUCT_ID)[0].value
-#     except IndexError:
-#         print('PID not found in {}'.format(type))
-#         return None
-#     return pid
-
-
-# def sign_csr_matter(csr, ca_cert, ca_key, device_sn, nva_years):
-#     cert = x509.CertificateBuilder()
-#     cert = cert.subject_name(csr.subject)
-#     cert = cert.issuer_name(ca_cert.subject)
-#     cert = cert.public_key(csr.public_key())
-#     cert = cert.serial_number(x509.random_serial_number())
-#     cert = cert.not_valid_before(datetime.datetime.utcnow())
-#     cert = cert.not_valid_after(datetime.datetime.utcnow() + datetime.timedelta(days=VALID_DAYS))
-#     cert = cert.add_extension(x509.BasicConstraints(ca=False, path_length=None), critical=True)
-#     cert = cert.add_extension(x509.KeyUsage(digital_signature=True, content_commitment=False,
-#                                             key_encipherment=False, data_encipherment=False,
-#                                             key_agreement=False, key_cert_sign=False, crl_sign=False,
-#                                             encipher_only=False, decipher_only=False), critical=True)
-#     cert = cert.add_extension(x509.SubjectKeyIdentifier.from_public_key(csr.public_key()), critical=False)
-#     cert = cert.add_extension(x509.AuthorityKeyIdentifier.from_issuer_public_key(ca_cert.public_key()), critical=False)
-#     cert = cert.sign(ca_key, hashes.SHA256(), default_backend())
-
-#     # csr_vid = get_vid_from_c(csr, 'CSR')
-#     # csr_pid = get_pid_from_c(csr, 'CSR')
-#     return cert.public_bytes(serialization.Encoding.PEM)
